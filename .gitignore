@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+*.key
+*.pem
+*.crt
+
+# Logs / runtime
+*.log
+*.pid
+
+# Asterisk runtime files (if any land in repo dir)
+*.agi-bc
+
+# OS
+.DS_Store
