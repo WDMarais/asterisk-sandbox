@@ -30,6 +30,7 @@ password=${SIP_PASS_01}
 type=aor
 max_contacts=2
 remove_existing=yes
+qualify_frequency=30
 remove_existing=yes
 
 ; Extension 6002
@@ -56,4 +57,5 @@ password=${SIP_PASS_02}
 type=aor
 max_contacts=2
 remove_existing=yes
+qualify_frequency=30
 remove_existing=yes
