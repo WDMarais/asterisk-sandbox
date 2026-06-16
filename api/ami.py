@@ -47,6 +47,8 @@ class AmiClient:
         block: dict[str, str] = {}
         while True:
             line = await self._reader.readline()
+            if not line:
+                raise ConnectionError("AMI connection closed")
             text = line.decode(errors="replace").rstrip("\r\n")
             if not text:
                 break
