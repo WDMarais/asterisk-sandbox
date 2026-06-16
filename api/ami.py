@@ -2,7 +2,13 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
-from api.parsing import DeviceStateResult, parse_device_state
+from api.parsing import (
+    AgentState,
+    DeviceStateResult,
+    KnownDeviceState,
+    agent_state_from_device_state,
+    parse_device_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +20,7 @@ class AmiClient:
     username: str
     secret: str
     device_states: dict[str, DeviceStateResult] = field(default_factory=dict)
+    agent_states: dict[str, AgentState] = field(default_factory=dict)
     _reader: asyncio.StreamReader | None = field(default=None, repr=False)
     _writer: asyncio.StreamWriter | None = field(default=None, repr=False)
 
@@ -61,7 +68,13 @@ class AmiClient:
                 break
             if block.get("Event") == "DeviceStateChange":
                 device = block.get("Device", "")
-                if device:
-                    result = parse_device_state(block.get("State"))
-                    self.device_states[device] = result
-                    logger.debug("device state: %s → %s", device, result)
+                if not device or not device.startswith(("PJSIP/", "SIP/")):
+                    continue
+                result = parse_device_state(block.get("State"))
+                self.device_states[device] = result
+                if isinstance(result, KnownDeviceState):
+                    current = self.agent_states.get(device, AgentState.OFFLINE)
+                    self.agent_states[device] = agent_state_from_device_state(
+                        result.state, current
+                    )
+                    logger.debug("agent state: %s → %s", device, self.agent_states[device])

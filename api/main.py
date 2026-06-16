@@ -30,4 +30,7 @@ def health():
 
 @app.get("/calls")
 def list_calls():
-    return {"device_states": ami.device_states}
+    return {
+        "agent_states": ami.agent_states,
+        "device_states": ami.device_states,
+    }

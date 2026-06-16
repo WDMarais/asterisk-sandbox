@@ -1,7 +1,10 @@
+import logging
 from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class ChannelTechnology(str, Enum):
@@ -132,3 +135,88 @@ def parse_device_state(raw: str | None) -> DeviceStateResult:
         else RegistrationState.REGISTERED
     )
     return KnownDeviceState(state=state, registration=registration)
+
+
+# --- Agent combined state FSM ---
+
+class AgentState(str, Enum):
+    AVAILABLE    = "AVAILABLE"
+    RINGING_IN   = "RINGING_IN"
+    RINGING_OUT  = "RINGING_OUT"
+    IN_CALL      = "IN_CALL"
+    ON_HOLD      = "ON_HOLD"
+    DND          = "DND"
+    DND_IN_CALL  = "DND_IN_CALL"
+    DND_ON_HOLD  = "DND_ON_HOLD"
+    OFFLINE      = "OFFLINE"
+
+
+_ALLOWED_TRANSITIONS: dict[AgentState, frozenset[AgentState]] = {
+    AgentState.AVAILABLE:   frozenset({AgentState.RINGING_IN, AgentState.RINGING_OUT,
+                                        AgentState.IN_CALL, AgentState.DND, AgentState.OFFLINE}),
+    AgentState.RINGING_IN:  frozenset({AgentState.IN_CALL, AgentState.AVAILABLE}),
+    AgentState.RINGING_OUT: frozenset({AgentState.IN_CALL, AgentState.AVAILABLE}),
+    AgentState.IN_CALL:     frozenset({AgentState.ON_HOLD, AgentState.AVAILABLE,
+                                        AgentState.DND_IN_CALL, AgentState.OFFLINE}),
+    AgentState.ON_HOLD:     frozenset({AgentState.IN_CALL, AgentState.AVAILABLE,
+                                        AgentState.DND_ON_HOLD, AgentState.OFFLINE}),
+    AgentState.DND:         frozenset({AgentState.AVAILABLE, AgentState.OFFLINE}),
+    AgentState.DND_IN_CALL: frozenset({AgentState.DND}),
+    AgentState.DND_ON_HOLD: frozenset({AgentState.DND_IN_CALL, AgentState.DND}),
+    AgentState.OFFLINE:     frozenset({AgentState.AVAILABLE}),
+}
+
+# Transitions that are explicitly blocked (not just absent from the table).
+_BLOCKED_TRANSITIONS: frozenset[tuple[AgentState, AgentState]] = frozenset({
+    (AgentState.IN_CALL,  AgentState.OFFLINE),
+    (AgentState.ON_HOLD,  AgentState.OFFLINE),
+})
+
+
+def transition_agent_state(current: AgentState, proposed: AgentState) -> AgentState:
+    """Apply a transition if allowed. Caller is responsible for checking blocked
+    transitions when the request is intentional (UI/API boundary).
+    AMI-driven transitions bypass the blocked set — a forced offline (browser crash,
+    network drop) must still land in OFFLINE regardless of call state.
+    """
+    if current == proposed:
+        return current
+    if proposed not in _ALLOWED_TRANSITIONS.get(current, frozenset()):
+        logger.warning("invalid transition %s → %s", current, proposed)
+        return current
+    return proposed
+
+
+def is_blocked_intentional_transition(current: AgentState, proposed: AgentState) -> bool:
+    """Returns True for transitions the agent is not allowed to request intentionally.
+    Use this at the API/UI boundary, not in AMI event handling.
+    """
+    return (current, proposed) in _BLOCKED_TRANSITIONS
+
+
+def agent_state_from_device_state(
+    device_state: DeviceState, current: AgentState
+) -> AgentState:
+    """Derive a proposed agent state from a raw device state change.
+
+    Cannot distinguish RINGING_IN from RINGING_OUT — that requires Newchannel
+    events tracked separately. RINGING always proposes RINGING_IN for now.
+    """
+    match device_state:
+        case DeviceState.UNAVAILABLE:
+            proposed = AgentState.OFFLINE
+        case DeviceState.NOT_INUSE:
+            # DND_IN_CALL and DND_ON_HOLD auto-transition to DND when the call ends.
+            if current in (AgentState.DND_IN_CALL, AgentState.DND_ON_HOLD):
+                proposed = AgentState.DND
+            else:
+                proposed = AgentState.AVAILABLE
+        case DeviceState.INUSE | DeviceState.BUSY:
+            proposed = AgentState.IN_CALL
+        case DeviceState.RINGING | DeviceState.RINGINUSE:
+            proposed = AgentState.RINGING_IN
+        case DeviceState.ONHOLD:
+            proposed = AgentState.ON_HOLD
+        case _:
+            return current
+    return transition_agent_state(current, proposed)
