@@ -1,7 +1,9 @@
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 
 from api.ami import AmiClient
 from api.settings import Settings
@@ -26,12 +28,10 @@ app = FastAPI(title="asterisk-sandbox", lifespan=lifespan)
 
 @app.get("/health")
 def health():
-    return PlainTextResponse('{"status": "ok"}\n')
+    return Response(content='{"status": "ok"}\n', media_type="application/json")
 
 
 @app.get("/calls")
 def list_calls():
-    return {
-        "agent_states": ami.agent_states,
-        "device_states": ami.device_states,
-    }
+    data = {"agent_states": ami.agent_states, "device_states": ami.device_states}
+    return Response(content=json.dumps(jsonable_encoder(data)) + "\n", media_type="application/json")
