@@ -2,6 +2,7 @@ import pytest
 
 from api.parsing import (
     AgentState,
+    CallOrigin,
     ChannelTechnology,
     DeviceState,
     InscrutableChannel,
@@ -13,6 +14,7 @@ from api.parsing import (
     UnknownDeviceState,
     UnknownTechChannel,
     agent_state_from_device_state,
+    classify_call_origin,
     is_blocked_intentional_transition,
     parse_channel,
     parse_device_state,
@@ -219,3 +221,54 @@ class TestAgentStateFromDeviceState:
 
     def test_unknown_device_state_is_noop(self):
         assert agent_state_from_device_state(DeviceState.UNKNOWN, AgentState.AVAILABLE) == AgentState.AVAILABLE
+
+
+# --- classify_call_origin ---
+
+class TestClassifyCallOrigin:
+    KNOWN = frozenset({"6001", "6002"})
+
+    def test_server_originated_with_originate_response_is_outbound(self):
+        events = [{"Event": "OriginateResponse", "CallerIDNum": "6001"}]
+        assert classify_call_origin(events, True, self.KNOWN) == CallOrigin.OUTBOUND
+
+    def test_server_originated_no_events_is_unknown(self):
+        assert classify_call_origin([], True, self.KNOWN) == CallOrigin.UNKNOWN
+
+    def test_server_originated_wrong_event_is_unknown(self):
+        events = [{"Event": "Newchannel"}]
+        assert classify_call_origin(events, True, self.KNOWN) == CallOrigin.UNKNOWN
+
+    def test_server_originated_takes_priority_over_queue(self):
+        events = [{"Event": "OriginateResponse", "Queue": "support"}]
+        assert classify_call_origin(events, True, self.KNOWN) == CallOrigin.OUTBOUND
+
+    def test_queue_field_on_any_event_is_queue(self):
+        events = [
+            {"Event": "Newchannel", "CallerIDNum": "0821234567"},
+            {"Event": "AgentCalled", "Queue": "support"},
+        ]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.QUEUE
+
+    def test_queue_takes_priority_over_internal(self):
+        events = [{"Event": "QueueCallerJoin", "Queue": "support", "CallerIDNum": "6001", "Exten": "6002"}]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.QUEUE
+
+    def test_internal_both_endpoints_known(self):
+        events = [{"Event": "Newchannel", "CallerIDNum": "6001", "Exten": "6002"}]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.INTERNAL
+
+    def test_internal_requires_caller_known(self):
+        events = [{"Event": "Newchannel", "CallerIDNum": "0821234567", "Exten": "6001"}]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.UNKNOWN
+
+    def test_internal_requires_destination_known(self):
+        events = [{"Event": "Newchannel", "CallerIDNum": "6001", "Exten": "0821234567"}]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.UNKNOWN
+
+    def test_unknown_no_events(self):
+        assert classify_call_origin([], False, self.KNOWN) == CallOrigin.UNKNOWN
+
+    def test_unknown_no_matching_signals(self):
+        events = [{"Event": "Newchannel", "CallerIDNum": "0821234567", "Exten": "9999"}]
+        assert classify_call_origin(events, False, self.KNOWN) == CallOrigin.UNKNOWN

@@ -194,6 +194,36 @@ def is_blocked_intentional_transition(current: AgentState, proposed: AgentState)
     return (current, proposed) in _BLOCKED_TRANSITIONS
 
 
+# --- Call origin classification ---
+
+class CallOrigin(str, Enum):
+    OUTBOUND = "OUTBOUND"
+    QUEUE    = "QUEUE"
+    INTERNAL = "INTERNAL"
+    UNKNOWN  = "UNKNOWN"
+
+
+def classify_call_origin(
+    events: list[dict[str, str]],
+    is_server_originated: bool,
+    known_endpoints: frozenset[str],
+) -> CallOrigin:
+    if is_server_originated:
+        if any(e.get("Event") == "OriginateResponse" for e in events):
+            return CallOrigin.OUTBOUND
+        return CallOrigin.UNKNOWN
+
+    if any("Queue" in e for e in events):
+        return CallOrigin.QUEUE
+
+    caller_ids = {e["CallerIDNum"] for e in events if "CallerIDNum" in e}
+    destinations = {e["Exten"] for e in events if "Exten" in e}
+    if caller_ids & known_endpoints and destinations & known_endpoints:
+        return CallOrigin.INTERNAL
+
+    return CallOrigin.UNKNOWN
+
+
 def agent_state_from_device_state(
     device_state: DeviceState, current: AgentState
 ) -> AgentState:
