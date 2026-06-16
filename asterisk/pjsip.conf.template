@@ -2,6 +2,9 @@
 type=transport
 protocol=udp
 bind=0.0.0.0:5060
+external_media_address=${DOMAIN}
+external_signaling_address=${DOMAIN}
+local_net=172.31.0.0/16
 
 ; Extension 6001
 [6001]
