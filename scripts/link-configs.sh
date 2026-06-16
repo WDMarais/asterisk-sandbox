@@ -19,14 +19,15 @@ for f in "${files[@]}"; do
 done
 
 # Asterisk runs as the 'asterisk' user and must traverse the symlink target path.
-# Add 'asterisk' to the current user's primary group, then grant group-execute
-# on each directory in the chain — scoped to the group rather than world.
-USER_GROUP="$(id -gn)"
+# Use SUDO_USER to get the real user's group when running under sudo.
+ACTUAL_USER="${SUDO_USER:-$(id -un)}"
+USER_GROUP="$(id -gn "$ACTUAL_USER")"
+USER_HOME="$(eval echo "~$ACTUAL_USER")"
 sudo usermod -aG "$USER_GROUP" asterisk
-chmod g+x "$HOME"
+chmod g+x "$USER_HOME"
 chmod g+x "$REPO_ROOT"
 chmod g+x "$REPO_DIR"
 chmod g+r "$REPO_DIR"/*.conf
 echo "permissions set (group: $USER_GROUP)"
 
-echo "done — reload with: sudo asterisk -rx 'core reload'"
+echo "done -- reload with: sudo systemctl restart asterisk"
