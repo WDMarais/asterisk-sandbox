@@ -8,3 +8,7 @@ class Settings(BaseSettings):
     ami_port: int = 5038
     ami_user: str = "asterisk-sandbox"
     ami_secret: str
+
+    domain: str = ""
+    email: str = ""
+    repo_url: str = ""
