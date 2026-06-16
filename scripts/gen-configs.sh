@@ -1,13 +1,13 @@
 #!/bin/bash
-# Generate /etc/asterisk configs from *.template files, substituting from .env.
-# Run after editing .env, then restart Asterisk.
+# Generate configs from *.template files, substituting from .env.
+# Run after editing .env, then restart services.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ ! -f "$REPO_ROOT/.env" ]]; then
-    echo "error: .env not found — copy .env.example and fill in values" >&2
+    echo "error: .env not found -- copy .env.example and fill in values" >&2
     exit 1
 fi
 
@@ -17,12 +17,22 @@ source "$REPO_ROOT/.env"
 set +a
 
 generate() {
-    local template="$1"
-    local dest="$2"
-    envsubst < "$template" | sudo tee "$dest" > /dev/null
+    local vars="$1"
+    local template="$2"
+    local dest="$3"
+    envsubst "$vars" < "$template" | sudo tee "$dest" > /dev/null
     echo "generated $dest"
 }
 
-generate "$REPO_ROOT/asterisk/manager.conf.template" /etc/asterisk/manager.conf
+generate '${AMI_SECRET}' \
+    "$REPO_ROOT/asterisk/manager.conf.template" \
+    /etc/asterisk/manager.conf
 
-echo "done — restart with: sudo systemctl restart asterisk"
+if [[ -n "${DOMAIN:-}" ]]; then
+    generate '${DOMAIN}' \
+        "$REPO_ROOT/nginx/pbx.conf.template" \
+        "/etc/nginx/sites-available/$DOMAIN"
+    echo "nginx config written -- symlink and reload nginx to apply"
+fi
+
+echo "done -- restart with: sudo systemctl restart asterisk && sudo systemctl reload nginx"

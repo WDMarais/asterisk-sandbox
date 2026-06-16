@@ -1,0 +1,16 @@
+[Unit]
+Description=asterisk-sandbox FastAPI
+After=network.target asterisk.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/asterisk-sandbox
+EnvironmentFile=/home/ubuntu/asterisk-sandbox/.env
+ExecStart=/home/ubuntu/asterisk-sandbox/.venv/bin/uvicorn api.main:app \
+    --host 127.0.0.1 --port 8000 \
+    --log-config log-config.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

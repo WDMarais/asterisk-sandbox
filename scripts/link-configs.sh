@@ -9,6 +9,8 @@ ETC_DIR="/etc/asterisk"
 files=(
     pjsip.conf
     extensions.conf
+    http.conf
+    queues.conf
 )
 
 for f in "${files[@]}"; do
