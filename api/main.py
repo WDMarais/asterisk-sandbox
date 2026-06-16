@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 
 from api.ami import AmiClient
 from api.settings import Settings
@@ -25,7 +26,7 @@ app = FastAPI(title="asterisk-sandbox", lifespan=lifespan)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return PlainTextResponse('{"status": "ok"}\n')
 
 
 @app.get("/calls")
