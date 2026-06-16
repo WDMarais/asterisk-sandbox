@@ -68,6 +68,7 @@ class AmiClient:
             except Exception:
                 logger.exception("AMI connection lost")
                 break
+            logger.debug("AMI event: %s", block)
             if block.get("Event") == "DeviceStateChange":
                 device = block.get("Device", "")
                 if not device or not device.startswith(("PJSIP/", "SIP/")):
