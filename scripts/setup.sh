@@ -69,6 +69,7 @@ sudo systemctl enable --now asterisk-fastapi
 
 echo "==> asterisk"
 sudo systemctl enable --now asterisk
+sudo asterisk -rx "module reload manager"
 
 echo ""
 echo "done -- verify:"
