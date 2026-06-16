@@ -7,7 +7,6 @@ REPO_DIR="$REPO_ROOT/asterisk"
 ETC_DIR="/etc/asterisk"
 
 files=(
-    pjsip.conf
     extensions.conf
     http.conf
     queues.conf

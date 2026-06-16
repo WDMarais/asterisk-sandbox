@@ -28,6 +28,10 @@ generate '${AMI_SECRET}' \
     "$REPO_ROOT/asterisk/manager.conf.template" \
     /etc/asterisk/manager.conf
 
+generate '${SIP_PASS_01},${SIP_PASS_02}' \
+    "$REPO_ROOT/asterisk/pjsip.conf.template" \
+    /etc/asterisk/pjsip.conf
+
 if [[ -n "${DOMAIN:-}" ]]; then
     generate '${DOMAIN}' \
         "$REPO_ROOT/nginx/pbx.conf.template" \

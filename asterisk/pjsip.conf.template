@@ -17,7 +17,7 @@ aors=6001
 type=auth
 auth_type=userpass
 username=6001
-password=pass6001
+password=${SIP_PASS_01}
 
 [6001]
 type=aor
@@ -37,7 +37,7 @@ aors=6002
 type=auth
 auth_type=userpass
 username=6002
-password=pass6002
+password=${SIP_PASS_02}
 
 [6002]
 type=aor

@@ -14,6 +14,7 @@ venv/
 
 # Generated from templates — do not commit
 asterisk/manager.conf
+asterisk/pjsip.conf
 
 # Logs / runtime
 *.log
