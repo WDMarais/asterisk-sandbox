@@ -12,6 +12,10 @@ allow=ulaw
 allow=alaw
 auth=auth6001
 aors=6001
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
 
 [auth6001]
 type=auth
@@ -34,6 +38,10 @@ allow=ulaw
 allow=alaw
 auth=auth6002
 aors=6002
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
 
 [auth6002]
 type=auth
