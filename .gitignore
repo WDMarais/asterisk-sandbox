@@ -12,6 +12,9 @@ venv/
 *.pem
 *.crt
 
+# Generated from templates — do not commit
+asterisk/manager.conf
+
 # Logs / runtime
 *.log
 *.pid

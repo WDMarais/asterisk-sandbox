@@ -9,7 +9,6 @@ ETC_DIR="/etc/asterisk"
 files=(
     pjsip.conf
     extensions.conf
-    manager.conf
 )
 
 for f in "${files[@]}"; do

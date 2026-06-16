@@ -31,24 +31,20 @@ cp .env.example .env
 # edit .env — set AMI_SECRET to something non-trivial
 ```
 
-### Systemd drop-in (inject .env into Asterisk)
+### Generated configs
 
-Asterisk reads `${ENV(VAR)}` from its process environment. The drop-in tells
-systemd to load `.env` before starting Asterisk:
+Some Asterisk config files (`manager.conf`) contain secrets and are generated
+from templates rather than symlinked. Run after first setup or any `.env` change:
 
 ```bash
-sudo mkdir -p /etc/systemd/system/asterisk.service.d
-sudo cp asterisk/systemd-env-override.conf \
-        /etc/systemd/system/asterisk.service.d/env.conf
-# Edit EnvironmentFile path in the installed copy to match this machine:
-sudo sed -i 's|/path/to/repo|/home/sitrosi/coding-projects/asterisk-sandbox|' \
-        /etc/systemd/system/asterisk.service.d/env.conf
-sudo systemctl daemon-reload && sudo systemctl restart asterisk
+sudo bash scripts/gen-configs.sh
+sudo systemctl restart asterisk
 # Verify:
 sudo asterisk -rx "manager show users"   # should list asterisk-sandbox
 ```
 
-On VPS: same steps, substituting the repo path on that host.
+On VPS: same steps — `gen-configs.sh` reads `.env` from the repo root,
+substitutes values via `envsubst`, and writes directly to `/etc/asterisk/`.
 
 ### Config files
 Selective symlinks — only files managed in this repo are linked. The rest of
