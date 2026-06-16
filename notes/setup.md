@@ -22,13 +22,41 @@ building a clean contract, raw Asterisk config files are clearer.
 sudo apt update && sudo apt install asterisk -y
 ```
 
+### Secrets
+
+Credentials live in `.env` (gitignored). Copy the template and fill in values:
+
+```bash
+cp .env.example .env
+# edit .env — set AMI_SECRET to something non-trivial
+```
+
+### Systemd drop-in (inject .env into Asterisk)
+
+Asterisk reads `${ENV(VAR)}` from its process environment. The drop-in tells
+systemd to load `.env` before starting Asterisk:
+
+```bash
+sudo mkdir -p /etc/systemd/system/asterisk.service.d
+sudo cp asterisk/systemd-env-override.conf \
+        /etc/systemd/system/asterisk.service.d/env.conf
+# Edit EnvironmentFile path in the installed copy to match this machine:
+sudo sed -i 's|/path/to/repo|/home/sitrosi/coding-projects/asterisk-sandbox|' \
+        /etc/systemd/system/asterisk.service.d/env.conf
+sudo systemctl daemon-reload && sudo systemctl restart asterisk
+# Verify:
+sudo asterisk -rx "manager show users"   # should list asterisk-sandbox
+```
+
+On VPS: same steps, substituting the repo path on that host.
+
 ### Config files
 Selective symlinks — only files managed in this repo are linked. The rest of
 `/etc/asterisk` (modules.conf, logger.conf, etc.) is left as installed by apt.
 
 ```bash
-./scripts/link-configs.sh
-sudo asterisk -rx "core reload"
+sudo bash scripts/link-configs.sh
+sudo systemctl restart asterisk
 ```
 
 To add a new config file to the repo: create it in `asterisk/`, add its name
