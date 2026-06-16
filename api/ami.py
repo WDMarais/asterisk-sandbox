@@ -2,6 +2,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
+from api.parsing import DeviceStateResult, parse_device_state
+
 logger = logging.getLogger(__name__)
 
 
@@ -11,7 +13,7 @@ class AmiClient:
     port: int
     username: str
     secret: str
-    device_states: dict[str, str] = field(default_factory=dict)
+    device_states: dict[str, DeviceStateResult] = field(default_factory=dict)
     _reader: asyncio.StreamReader | None = field(default=None, repr=False)
     _writer: asyncio.StreamWriter | None = field(default=None, repr=False)
 
@@ -20,6 +22,7 @@ class AmiClient:
         greeting = await self._reader.readline()
         logger.info("AMI: %s", greeting.decode().strip())
         await self._login()
+        await self._request_device_state_list()
         asyncio.create_task(self._event_loop())
 
     async def _login(self) -> None:
@@ -45,6 +48,10 @@ class AmiClient:
                 block[key] = value
         return block
 
+    async def _request_device_state_list(self) -> None:
+        self._writer.write(b"Action: DeviceStateList\r\n\r\n")
+        await self._writer.drain()
+
     async def _event_loop(self) -> None:
         while True:
             try:
@@ -54,7 +61,7 @@ class AmiClient:
                 break
             if block.get("Event") == "DeviceStateChange":
                 device = block.get("Device", "")
-                state = block.get("State", "")
                 if device:
-                    self.device_states[device] = state
-                    logger.debug("device state: %s → %s", device, state)
+                    result = parse_device_state(block.get("State"))
+                    self.device_states[device] = result
+                    logger.debug("device state: %s → %s", device, result)
