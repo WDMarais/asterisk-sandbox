@@ -40,7 +40,7 @@ if ! command -v uv &>/dev/null; then
 fi
 
 echo "==> repo"
-if [[ ! -d "$REPO_DIR" ]]; then
+if [[ ! -d "$REPO_DIR/.git" ]]; then
     git clone "$REPO_URL" "$REPO_DIR"
 else
     git -C "$REPO_DIR" pull --ff-only
