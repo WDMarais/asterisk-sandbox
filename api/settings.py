@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     ami_user: str = "asterisk-sandbox"
     ami_secret: str
 
+    sip_pass_01: str = ""
+    sip_pass_02: str = ""
+
     domain: str = ""
     email: str = ""
     repo_url: str = ""
