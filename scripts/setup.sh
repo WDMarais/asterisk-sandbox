@@ -4,22 +4,13 @@
 
 set -euo pipefail
 
-ENV_FILE="$HOME/asterisk-sandbox/.env"
-
-# Bootstrap: .env must exist before the repo is cloned on first run.
-# Copy .env.example from the repo manually, or drop it at $HOME/.env first.
-if [[ -f "$HOME/.env" && ! -f "$HOME/asterisk-sandbox/.env" ]]; then
-    mkdir -p "$HOME/asterisk-sandbox"
-    cp "$HOME/.env" "$HOME/asterisk-sandbox/.env"
-fi
-
-if [[ ! -f "$HOME/asterisk-sandbox/.env" ]]; then
-    echo "error: no .env found. Copy .env.example, fill in values, place at $HOME/.env, then re-run."
+if [[ ! -f "$HOME/.env" ]]; then
+    echo "error: no ~/.env found. Copy .env.example, fill in values, place at $HOME/.env, then re-run."
     exit 1
 fi
 
 # shellcheck source=/dev/null
-source "$HOME/asterisk-sandbox/.env"
+source "$HOME/.env"
 
 : "${DOMAIN:?DOMAIN not set in .env}"
 : "${EMAIL:?EMAIL not set in .env}"
@@ -49,11 +40,7 @@ cd "$REPO_DIR"
 
 echo "==> .env"
 if [[ ! -f ".env" ]]; then
-    cp .env.example .env
-    echo ""
-    echo "STOP: fill in .env then re-run:"
-    echo "  nano $REPO_DIR/.env"
-    exit 1
+    cp "$HOME/.env" .env
 fi
 
 echo "==> asterisk config"
