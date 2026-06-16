@@ -21,7 +21,9 @@ password=${SIP_PASS_01}
 
 [6001]
 type=aor
-max_contacts=1
+max_contacts=2
+remove_existing=yes
+remove_existing=yes
 
 ; Extension 6002
 [6002]
@@ -41,4 +43,6 @@ password=${SIP_PASS_02}
 
 [6002]
 type=aor
-max_contacts=1
+max_contacts=2
+remove_existing=yes
+remove_existing=yes
