@@ -8,9 +8,11 @@ WorkingDirectory=/home/ubuntu/asterisk-sandbox
 EnvironmentFile=/home/ubuntu/asterisk-sandbox/.env
 ExecStart=/home/ubuntu/asterisk-sandbox/.venv/bin/uvicorn api.main:app \
     --host 127.0.0.1 --port 8000 \
-    --log-config log-config.json
+    --log-config log-config.json \
+    --timeout-graceful-shutdown 5
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=15
 
 [Install]
 WantedBy=multi-user.target
