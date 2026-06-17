@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from dataclasses import dataclass, field
 
@@ -23,6 +24,23 @@ class AmiClient:
     agent_states: dict[str, AgentState] = field(default_factory=dict)
     _reader: asyncio.StreamReader | None = field(default=None, repr=False)
     _writer: asyncio.StreamWriter | None = field(default=None, repr=False)
+    _subscribers: list[asyncio.Queue[str]] = field(default_factory=list, repr=False)
+
+    def subscribe(self) -> asyncio.Queue[str]:
+        q: asyncio.Queue[str] = asyncio.Queue()
+        self._subscribers.append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue[str]) -> None:
+        try:
+            self._subscribers.remove(q)
+        except ValueError:
+            pass
+
+    def _publish(self, event_type: str, payload: dict) -> None:
+        chunk = f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
+        for q in self._subscribers:
+            q.put_nowait(chunk)
 
     async def connect(self) -> None:
         self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
@@ -76,7 +94,12 @@ class AmiClient:
                 self.device_states[device] = result
                 if isinstance(result, KnownDeviceState):
                     current = self.agent_states.get(device, AgentState.OFFLINE)
-                    self.agent_states[device] = agent_state_from_device_state(
-                        result.state, current
-                    )
-                    logger.debug("agent state: %s → %s", device, self.agent_states[device])
+                    new_state = agent_state_from_device_state(result.state, current)
+                    self.agent_states[device] = new_state
+                    logger.debug("agent state: %s → %s", device, new_state)
+                    if new_state != current:
+                        self._publish("agent_state_changed", {
+                            "device": device,
+                            "state": new_state,
+                            "previous": current,
+                        })

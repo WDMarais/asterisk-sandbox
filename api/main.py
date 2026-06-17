@@ -1,9 +1,10 @@
+import asyncio
 import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from api.ami import AmiClient
 from api.settings import Settings
@@ -35,3 +36,23 @@ def health():
 def list_calls():
     data = {"agent_states": ami.agent_states, "device_states": ami.device_states}
     return Response(content=json.dumps(jsonable_encoder(data)) + "\n", media_type="application/json")
+
+
+@app.get("/events")
+async def event_stream():
+    q = ami.subscribe()
+
+    async def generate():
+        snapshot = json.dumps(jsonable_encoder({"agent_states": ami.agent_states}))
+        yield f"event: snapshot\ndata: {snapshot}\n\n"
+        try:
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(q.get(), timeout=30)
+                    yield chunk
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            ami.unsubscribe(q)
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
