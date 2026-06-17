@@ -40,3 +40,4 @@ if [[ -n "${DOMAIN:-}" ]]; then
 fi
 
 echo "done -- restart with: sudo systemctl restart asterisk && sudo systemctl reload nginx"
+echo "note: asterisk-fastapi reconnects to AMI automatically after an asterisk restart (~1s)"

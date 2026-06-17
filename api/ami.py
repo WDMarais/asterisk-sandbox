@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 from dataclasses import dataclass, field
@@ -12,6 +13,9 @@ from api.parsing import (
 )
 
 logger = logging.getLogger(__name__)
+
+_RECONNECT_BACKOFF_INITIAL = 1.0
+_RECONNECT_BACKOFF_MAX = 60.0
 
 
 @dataclass
@@ -42,13 +46,23 @@ class AmiClient:
         for q in self._subscribers:
             q.put_nowait(chunk)
 
-    async def connect(self) -> None:
+    async def _do_connect(self) -> None:
         self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
         greeting = await self._reader.readline()
         logger.info("AMI: %s", greeting.decode().strip())
         await self._login()
         await self._request_device_state_list()
+
+    async def connect(self) -> None:
+        await self._do_connect()
         asyncio.create_task(self._event_loop())
+
+    async def _reconnect(self) -> None:
+        if self._writer:
+            self._writer.close()
+            with contextlib.suppress(Exception):
+                await self._writer.wait_closed()
+        await self._do_connect()
 
     async def _login(self) -> None:
         self._writer.write(
@@ -80,12 +94,22 @@ class AmiClient:
         await self._writer.drain()
 
     async def _event_loop(self) -> None:
+        backoff = _RECONNECT_BACKOFF_INITIAL
         while True:
             try:
                 block = await self._read_block()
+                backoff = _RECONNECT_BACKOFF_INITIAL
             except Exception:
-                logger.exception("AMI connection lost")
-                break
+                logger.exception("AMI connection lost — reconnecting in %.0fs", backoff)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, _RECONNECT_BACKOFF_MAX)
+                try:
+                    await self._reconnect()
+                    logger.info("AMI reconnected")
+                except Exception:
+                    logger.exception("AMI reconnect failed")
+                continue
+
             if block.get("Event") == "DeviceStateChange":
                 device = block.get("Device", "")
                 if not device or not device.startswith(("PJSIP/", "SIP/")):
