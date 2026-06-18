@@ -40,11 +40,17 @@ echo '0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/asterisk' \
 echo "==> fastapi service"
 sudo cp scripts/fastapi.service /etc/systemd/system/asterisk-fastapi.service
 sudo systemctl daemon-reload
+sudo systemctl enable asterisk-fastapi
 
 echo "==> python deps"
 uv sync
 
 echo "==> reload services"
+# Enable our site and drop the Ubuntu default (idempotent). The TLS site
+# references /etc/letsencrypt/live/$DOMAIN, so the cert must already exist --
+# setup.sh obtains it before the first call here.
+sudo ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 sudo asterisk -rx "core reload" > /dev/null
 sudo systemctl restart asterisk-fastapi

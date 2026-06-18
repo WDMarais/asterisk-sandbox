@@ -1,83 +1,48 @@
 #!/bin/bash
-# Provision a fresh Ubuntu 24.04 EC2 instance for asterisk-sandbox.
-# Run as the ubuntu user (passwordless sudo). Safe to re-run.
+# Provision + cert + apply, end to end, for asterisk-sandbox on Ubuntu 24.04.
+# Run as the target user (e.g. ubuntu) with passwordless sudo. Safe to re-run.
+#
+# Orchestrates the three lifecycle scripts:
+#   provision.sh   one-time host prep (packages, uv, repo, base services)
+#   certs.sh       Let's Encrypt cert for $DOMAIN (needs DNS pointing here)
+#   apply-repo.sh  link/render configs, install service + logrotate, reload
+#
+# On a fresh domain whose DNS doesn't resolve to this box yet, it provisions,
+# tells you to point DNS, and stops cleanly -- re-run setup.sh (or run
+# certs.sh && apply-repo.sh) once DNS is live.
 
 set -euo pipefail
 
 if [[ ! -f "$HOME/.env" ]]; then
-    echo "error: no ~/.env found. Copy .env.example, fill in values, place at $HOME/.env, then re-run."
+    echo "error: no ~/.env found. Copy .env.example, fill in values, place at $HOME/.env, then re-run." >&2
     exit 1
 fi
-
 # shellcheck source=/dev/null
 source "$HOME/.env"
-
 : "${DOMAIN:?DOMAIN not set in .env}"
 : "${EMAIL:?EMAIL not set in .env}"
 : "${REPO_URL:?REPO_URL not set in .env}"
 
-REPO_DIR="$HOME/asterisk-sandbox"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "==> system packages"
-sudo apt-get update -q
-sudo apt-get upgrade -y -q
-sudo apt-get install -y -q asterisk nginx certbot python3-certbot-nginx git curl gettext-base
+bash "$SCRIPT_DIR/provision.sh"
 
-echo "==> uv"
-if ! command -v uv &>/dev/null; then
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    # shellcheck source=/dev/null
-    source "$HOME/.local/bin/env"
+# Cert issuance needs DNS for $DOMAIN to resolve to this box's public IP.
+# If it doesn't yet, stop cleanly after provisioning and guide the operator.
+public_ip="$(curl -fsS https://checkip.amazonaws.com 2>/dev/null || true)"
+resolved_ip="$(getent ahostsv4 "$DOMAIN" | awk '{print $1; exit}')"
+if [[ -z "$resolved_ip" || ( -n "$public_ip" && "$resolved_ip" != "$public_ip" ) ]]; then
+    echo ""
+    echo "DNS for $DOMAIN does not resolve to this box yet:"
+    echo "  this box:    ${public_ip:-<unknown>}"
+    echo "  $DOMAIN -> ${resolved_ip:-<unresolved>}"
+    echo "point DNS at this box, then finish with:"
+    echo "  bash $SCRIPT_DIR/certs.sh && bash $SCRIPT_DIR/apply-repo.sh"
+    exit 0
 fi
 
-echo "==> repo"
-if [[ ! -d "$REPO_DIR/.git" ]]; then
-    git clone "$REPO_URL" "$REPO_DIR"
-else
-    git -C "$REPO_DIR" pull --ff-only
-fi
-cd "$REPO_DIR"
-
-echo "==> .env"
-if [[ ! -f ".env" ]]; then
-    cp "$HOME/.env" .env
-fi
-
-echo "==> asterisk config"
-sudo bash scripts/link-configs.sh
-sudo bash scripts/gen-configs.sh
-
-echo "==> log rotation"
-# Copied, not symlinked: logrotate skips symlinked configs in logrotate.d.
-sudo cp asterisk/logrotate.conf /etc/logrotate.d/asterisk
-# maxsize is only evaluated when logrotate runs, and the default cron is daily
-# -- too slow for a SIP auth-failure flood -- so also check hourly.
-echo '0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/asterisk' \
-    | sudo tee /etc/cron.d/asterisk-logrotate-hourly > /dev/null
-
-echo "==> python deps"
-uv sync
-
-echo "==> TLS cert"
-# nginx starts with Ubuntu default config (HTTP only) - enough for the ACME challenge
-sudo systemctl start nginx
-sudo certbot certonly --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL"
-
-echo "==> nginx site"
-# gen-configs.sh already wrote the site config; just symlink and reload
-sudo ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-
-echo "==> fastapi service"
-sudo cp scripts/fastapi.service /etc/systemd/system/asterisk-fastapi.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now asterisk-fastapi
-
-echo "==> asterisk"
-sudo systemctl enable --now asterisk
-sudo asterisk -rx "module reload manager"
+bash "$SCRIPT_DIR/certs.sh"
+bash "$SCRIPT_DIR/apply-repo.sh"
 
 echo ""
 echo "done -- verify:"

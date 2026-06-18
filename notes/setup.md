@@ -91,12 +91,39 @@ All minimal, annotated with what each setting does and why:
 - `manager.conf` — AMI on 127.0.0.1:5038, one user with sufficient permissions
 - `modules.conf` — explicit load list; only what's needed
 
-### Provisioning script
-`setup.sh` — idempotent, runs on a fresh Ubuntu/Debian VPS:
-- Install Asterisk from packages
-- Copy config files from repo
-- Generate TLS cert (Let's Encrypt via certbot, or self-signed for dev)
-- Enable and start asterisk service
+### Provisioning scripts
+Split along lifecycle seams, all idempotent and run as the target user (e.g.
+`ubuntu`) with passwordless sudo:
+
+- `provision.sh` — one-time host prep: apt packages, uv, repo clone/pull, `.env`,
+  and base asterisk + nginx on HTTP. Run once per box.
+- `certs.sh` — Let's Encrypt cert for `$DOMAIN`. Needs DNS for `$DOMAIN` already
+  pointing at the box (the natural part-1/part-2 boundary). Idempotent; skips if a
+  live cert exists, `--force` to re-issue. Ongoing renewal is certbot's own timer.
+- `apply-repo.sh` — everything re-appliable on a `git pull`: link + render configs,
+  install the systemd service and logrotate, `uv sync`, enable the TLS nginx site,
+  then reload nginx + `core reload` asterisk + restart `asterisk-fastapi`. This is
+  the redeploy command.
+- `setup.sh` — orchestrates `provision.sh` → `certs.sh` → `apply-repo.sh`. If DNS
+  for `$DOMAIN` doesn't resolve to this box yet, it provisions, prints the IP to
+  point DNS at, and stops cleanly; re-run once DNS is live.
+
+Building blocks `gen-configs.sh` (render templates) and `link-configs.sh` (symlink
+asterisk confs + perms) are called by `apply-repo.sh`, not run directly in normal use.
+
+Typical flows:
+```bash
+# fresh box, new domain
+bash scripts/provision.sh
+# ...point DNS at the printed IP...
+bash scripts/certs.sh && bash scripts/apply-repo.sh
+
+# or one-shot when DNS already resolves (e.g. rebuilding on an existing domain)
+bash scripts/setup.sh
+
+# redeploy after a code/config change
+git pull --ff-only && bash scripts/apply-repo.sh
+```
 
 ### TLS / WebSocket
 - WSS requires TLS. Self-signed is fine for local dev.
