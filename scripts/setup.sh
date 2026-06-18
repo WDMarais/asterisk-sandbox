@@ -47,6 +47,14 @@ echo "==> asterisk config"
 sudo bash scripts/link-configs.sh
 sudo bash scripts/gen-configs.sh
 
+echo "==> log rotation"
+# Copied, not symlinked: logrotate skips symlinked configs in logrotate.d.
+sudo cp asterisk/logrotate.conf /etc/logrotate.d/asterisk
+# maxsize is only evaluated when logrotate runs, and the default cron is daily
+# -- too slow for a SIP auth-failure flood -- so also check hourly.
+echo '0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/asterisk' \
+    | sudo tee /etc/cron.d/asterisk-logrotate-hourly > /dev/null
+
 echo "==> python deps"
 uv sync
 
