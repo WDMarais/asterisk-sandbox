@@ -1,6 +1,18 @@
 #!/bin/bash
-# Generate configs from *.template files, substituting from .env.
-# Run after editing .env, then restart services.
+# Render the configs that carry secrets or deployment-specific values -- the
+# AMI secret, SIP passwords, and $DOMAIN -- from *.template files, substituting
+# values from .env. Unlike the static configs (link-configs.sh), these can't be
+# committed and symlinked without putting secrets and site-specifics in git, so
+# the repo keeps templates with ${VAR} placeholders and this writes the rendered
+# result straight to /etc. Run after editing .env, then restart services.
+#
+# The single-quoted '${VAR}' args to generate() below are envsubst's variable
+# ALLOWLIST, not bash expansions -- they must stay literal so envsubst replaces
+# only those vars and leaves real $-syntax in the configs intact (nginx $host,
+# Asterisk dialplan ${EXTEN}). Double-quoting them would expand the secret in
+# bash before envsubst runs, breaking the scoping and leaking it. SC2016 is
+# therefore a false positive here and disabled file-wide.
+# shellcheck disable=SC2016
 
 set -euo pipefail
 

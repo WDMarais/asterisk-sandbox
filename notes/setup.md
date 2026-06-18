@@ -37,13 +37,13 @@ Some Asterisk config files (`manager.conf`) contain secrets and are generated
 from templates rather than symlinked. Run after first setup or any `.env` change:
 
 ```bash
-sudo bash scripts/gen-configs.sh
+sudo bash scripts/render-configs.sh
 sudo systemctl restart asterisk
 # Verify:
 sudo asterisk -rx "manager show users"   # should list asterisk-sandbox
 ```
 
-On VPS: same steps — `gen-configs.sh` reads `.env` from the repo root,
+On VPS: same steps — `render-configs.sh` reads `.env` from the repo root,
 substitutes values via `envsubst`, and writes directly to `/etc/asterisk/`.
 
 ### Config files
@@ -108,7 +108,7 @@ Split along lifecycle seams, all idempotent and run as the target user (e.g.
   for `$DOMAIN` doesn't resolve to this box yet, it provisions, prints the IP to
   point DNS at, and stops cleanly; re-run once DNS is live.
 
-Building blocks `gen-configs.sh` (render templates) and `link-configs.sh` (symlink
+Building blocks `render-configs.sh` (render templates) and `link-configs.sh` (symlink
 asterisk confs + perms) are called by `apply-repo.sh`, not run directly in normal use.
 
 Typical flows:

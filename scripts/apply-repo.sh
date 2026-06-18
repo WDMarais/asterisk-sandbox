@@ -30,7 +30,7 @@ set +a
 
 echo "==> asterisk + nginx config"
 sudo bash scripts/link-configs.sh
-bash scripts/gen-configs.sh
+bash scripts/render-configs.sh
 
 echo "==> log rotation"
 sudo cp asterisk/logrotate.conf /etc/logrotate.d/asterisk
