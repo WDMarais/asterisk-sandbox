@@ -16,11 +16,25 @@ source "$HOME/.env"
 : "${DOMAIN:?DOMAIN not set in .env}"
 : "${EMAIL:?EMAIL not set in .env}"
 
+# Renewal reload hook. We issue with `certonly`, so certbot's renewal timer fetches
+# a fresh cert but does NOT touch or reload nginx -- without this, nginx keeps
+# serving the old cert until it expires (~90 days out, silently). Deploy hooks run
+# after every successful renewal regardless of how the cert was first issued, so
+# installing it here also fixes a box whose cert was issued before the hook existed.
+# Installed every run (idempotent), before the already-present short-circuit below.
+sudo install -d /etc/letsencrypt/renewal-hooks/deploy
+sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh > /dev/null <<'HOOK'
+#!/bin/sh
+# Installed by certs.sh -- reload nginx so a renewed cert takes effect.
+systemctl reload nginx
+HOOK
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+
 force=""
 [[ "${1:-}" == "--force" ]] && force="--force-renewal"
 
 if [[ -d "/etc/letsencrypt/live/$DOMAIN" && -z "$force" ]]; then
-    echo "cert for $DOMAIN already present -- skipping (use --force to re-issue)"
+    echo "cert for $DOMAIN already present -- skipping issuance (renewal hook ensured)"
     exit 0
 fi
 
