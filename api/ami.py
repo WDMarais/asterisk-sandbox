@@ -4,6 +4,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 
+from api.calls import CallTracker
 from api.parsing import (
     AgentState,
     DeviceStateResult,
@@ -26,6 +27,7 @@ class AmiClient:
     secret: str
     device_states: dict[str, DeviceStateResult] = field(default_factory=dict)
     agent_states: dict[str, AgentState] = field(default_factory=dict)
+    tracker: CallTracker = field(default_factory=CallTracker)
     _reader: asyncio.StreamReader | None = field(default=None, repr=False)
     _writer: asyncio.StreamWriter | None = field(default=None, repr=False)
     _subscribers: list[asyncio.Queue[str]] = field(default_factory=list, repr=False)
@@ -110,20 +112,38 @@ class AmiClient:
                     logger.exception("AMI reconnect failed")
                 continue
 
-            if block.get("Event") == "DeviceStateChange":
-                device = block.get("Device", "")
-                if not device or not device.startswith(("PJSIP/", "SIP/")):
-                    continue
-                result = parse_device_state(block.get("State"))
-                self.device_states[device] = result
-                if isinstance(result, KnownDeviceState):
-                    current = self.agent_states.get(device, AgentState.OFFLINE)
-                    new_state = agent_state_from_device_state(result.state, current)
-                    self.agent_states[device] = new_state
-                    logger.debug("agent state: %s → %s", device, new_state)
-                    if new_state != current:
-                        self._publish("agent_state_changed", {
-                            "device": device,
-                            "state": new_state,
-                            "previous": current,
-                        })
+            self._handle_block(block)
+
+    def _handle_block(self, block: dict[str, str]) -> None:
+        if block.get("Event") == "DeviceStateChange":
+            self._handle_device_state_change(block)
+        # Feed every event to the call tracker; it self-filters on its allowlist.
+        self.tracker.known_endpoints = self._endpoint_numbers()
+        for event_type, payload in self.tracker.ingest(block):
+            self._publish(event_type, payload)
+
+    def _handle_device_state_change(self, block: dict[str, str]) -> None:
+        device = block.get("Device", "")
+        if not device or not device.startswith(("PJSIP/", "SIP/")):
+            return
+        result = parse_device_state(block.get("State"))
+        self.device_states[device] = result
+        if isinstance(result, KnownDeviceState):
+            current = self.agent_states.get(device, AgentState.OFFLINE)
+            new_state = agent_state_from_device_state(result.state, current)
+            self.agent_states[device] = new_state
+            logger.debug("agent state: %s → %s", device, new_state)
+            if new_state != current:
+                self._publish("agent_state_changed", {
+                    "device": device,
+                    "state": new_state,
+                    "previous": current,
+                })
+
+    def _endpoint_numbers(self) -> frozenset[str]:
+        """Bare extension numbers, derived from the devices Asterisk reports."""
+        return frozenset(
+            device.split("/", 1)[1]
+            for device in self.device_states
+            if "/" in device
+        )

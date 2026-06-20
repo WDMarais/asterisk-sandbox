@@ -34,7 +34,11 @@ def health():
 
 @app.get("/calls")
 def list_calls():
-    data = {"agent_states": ami.agent_states, "device_states": ami.device_states}
+    data = {
+        "agent_states": ami.agent_states,
+        "device_states": ami.device_states,
+        "calls": [call.snapshot() for call in ami.tracker.calls.values()],
+    }
     return Response(content=json.dumps(jsonable_encoder(data)) + "\n", media_type="application/json")
 
 
@@ -43,7 +47,10 @@ async def event_stream():
     q = ami.subscribe()
 
     async def generate():
-        snapshot = json.dumps(jsonable_encoder({"agent_states": ami.agent_states}))
+        snapshot = json.dumps(jsonable_encoder({
+            "agent_states": ami.agent_states,
+            "calls": [call.snapshot() for call in ami.tracker.calls.values()],
+        }))
         yield f"event: snapshot\ndata: {snapshot}\n\n"
         try:
             while True:
