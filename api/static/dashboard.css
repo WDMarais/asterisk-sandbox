@@ -1,0 +1,44 @@
+:root {
+  --bg:#0f1115; --panel:#1a1d24; --fg:#e6e6e6; --muted:#8a8f98; --line:#2a2e37;
+  --ok:#3fb950; --warn:#d29922; --busy:#db6d28; --ring:#58a6ff; --off:#6e7681; --gap:1rem;
+}
+
+* { box-sizing:border-box; }
+
+body {
+  margin:0; background:var(--bg); color:var(--fg);
+  font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+header {
+  display:flex; align-items:center; gap:.6rem;
+  padding:1rem 1.25rem; border-bottom:1px solid var(--line);
+}
+header h1 { margin:0; font-size:1rem; font-weight:600; }
+#conn { margin-left:auto; font-size:.8rem; color:var(--muted); }
+
+main { padding:1.25rem; display:grid; gap:1.5rem; max-width:960px; }
+
+h2 {
+  margin:0 0 .5rem; font-size:.78rem; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--muted);
+}
+
+.grid { display:grid; gap:var(--gap); grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); }
+
+.card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:.75rem .9rem; }
+
+.row { display:flex; align-items:center; gap:.5rem; }
+.dot { width:10px; height:10px; border-radius:50%; background:var(--off); flex:none; }
+.name { font-weight:600; }
+.state { margin-left:auto; font-size:.8rem; color:var(--muted); }
+.sub { margin-top:.4rem; color:var(--muted); font-size:.82rem; }
+.empty { color:var(--muted); font-style:italic; }
+.tag { font-size:.7rem; padding:.1rem .4rem; border-radius:4px; background:var(--line); color:var(--muted); }
+
+/* agent-state colours (classes map to AgentState enum values) */
+.s-AVAILABLE .dot { background:var(--ok); }
+.s-IN_CALL .dot, .s-ON_HOLD .dot { background:var(--busy); }
+.s-RINGING_IN .dot, .s-RINGING_OUT .dot { background:var(--ring); }
+.s-DND .dot, .s-DND_IN_CALL .dot, .s-DND_ON_HOLD .dot { background:var(--warn); }
+.s-OFFLINE .dot { background:var(--off); }

@@ -1,10 +1,12 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.ami import AmiClient
 from api.settings import Settings
@@ -25,6 +27,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="asterisk-sandbox", lifespan=lifespan)
+
+_STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=_STATIC), name="static")
+
+
+@app.get("/")
+def dashboard():
+    return FileResponse(_STATIC / "index.html")
 
 
 def _json(data) -> Response:

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>asterisk-sandbox</title>
+<link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+<header>
+  <span class="dot" id="conndot"></span>
+  <h1>asterisk-sandbox</h1>
+  <span id="conn">connecting…</span>
+</header>
+<main>
+  <section>
+    <h2>Agents</h2>
+    <div class="grid" id="agents"><div class="empty">no data</div></div>
+  </section>
+  <section>
+    <h2>Live calls</h2>
+    <div class="grid" id="calls"><div class="empty">no active calls</div></div>
+  </section>
+</main>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>
