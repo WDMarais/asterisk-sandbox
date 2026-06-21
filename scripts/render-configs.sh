@@ -45,7 +45,8 @@ generate '${AMI_SECRET}' \
 # from the env sourced above. Capture first so a generator error (e.g. a missing
 # SIP_PASS_NN) aborts via set -e WITHOUT truncating the live config; tee escalates.
 pjsip_conf="$(python3 "$REPO_ROOT/scripts/gen_pjsip.py")"
-printf '%s' "$pjsip_conf" | sudo tee /etc/asterisk/pjsip.conf > /dev/null
+# $(...) strips the generator's trailing newline; printf adds one back.
+printf '%s\n' "$pjsip_conf" | sudo tee /etc/asterisk/pjsip.conf > /dev/null
 echo "generated /etc/asterisk/pjsip.conf"
 
 if [[ -n "${DOMAIN:-}" ]]; then
