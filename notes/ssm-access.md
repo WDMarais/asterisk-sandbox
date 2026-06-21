@@ -75,19 +75,23 @@ lifecycle scripts (`provision.sh` etc.), which run as `ubuntu` on the box.
 
 ### A. Identity bootstrap — IAM Identity Center (console, one-time)
 
-Never use the root user. Set up an SSO identity instead (short-lived creds, no
-key on disk):
+Enabling Identity Center has no API — it must be done in the console — and with
+nothing configured yet, the first credential has to come from there anyway. Sign
+in as the **root** user (the one acceptable root use); enable MFA on root while
+you're there. Then:
 
 1. Console → **IAM Identity Center** → Enable (auto-creates an AWS Organization
    over this single account if none exists). Note the **AWS access portal URL**
    (Settings → e.g. `https://d-xxxx.awsapps.com/start`) and the Identity Center
    region.
-2. **Permission sets** → Create → Custom → attach the contents of
-   `aws/ssm-connect-policy.json` (placeholders filled) as an inline policy. Name
-   it e.g. `SSMConnect`; session duration ~4h.
+2. **Permission sets** → Create → Predefined → **AdministratorAccess**, session
+   duration ~4h. This is the bootstrap identity: it runs `aws-ssm-setup.sh`
+   (which creates IAM roles) and general admin. The least-priv connect set
+   (`SSMConnect` from `aws/ssm-connect-policy.json`) comes later — step C.5.
 3. **Users** → Add user (your email) → set password + register MFA from the
    emailed invite.
-4. **AWS accounts** → select this account → Assign → your user → `SSMConnect`.
+4. **AWS accounts** → select this account → Assign → your user → AdministratorAccess.
+5. Sign out of root; from here on use the SSO portal URL.
 
 ### B. Configure the CLI (workstation)
 
@@ -118,11 +122,16 @@ AWS_PROFILE=pbx INSTANCE_ID=i-xxxx bash scripts/aws-ssm-connect-setup.sh --write
 AWS_PROFILE=pbx aws ssm start-session --target i-xxxx --region af-south-1  # shell as ssm-user
 ssh pbx                                                                    # shell as ubuntu (over SSM)
 
-# 5. lock down: delete the inbound port-22 rule from the instance's security group.
+# 5. lock down (recommended): in Identity Center create an "SSMConnect" permission
+#    set from aws/ssm-connect-policy.json (placeholders filled), assign it to your
+#    user, and `aws configure sso` a second profile that uses it for day-to-day
+#    connect (smaller blast radius than Administrator). Then delete the inbound
+#    port-22 rule from the instance's security group.
 ```
 
 Day to day: `aws sso login --profile pbx` once when the token expires, then
-`ssh pbx` / `scp pbx:` freely.
+`ssh pbx` / `scp pbx:` freely. Use the Administrator profile only when you need
+to re-run setup/admin.
 
 ## Break-glass / recovery
 
