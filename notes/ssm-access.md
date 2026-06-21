@@ -66,10 +66,13 @@ aws/ec2-ssm-trust-policy.json   EC2 trust policy for the instance role
 aws/ssm-connect-policy.json     least-priv policy for your connecting identity
 scripts/aws-ssm-setup.sh        [run locally] create role/profile, attach, wait Online
 scripts/aws-ssm-connect-setup.sh[run locally] install plugin + ssh config block
+scripts/aws-ssm-lockdown.sh     [run locally] close inbound tcp/22 once SSM works
 ```
 
 These run on your **workstation** with AWS credentials — unlike the on-VPS
-lifecycle scripts (`provision.sh` etc.), which run as `ubuntu` on the box.
+lifecycle scripts (`provision.sh` etc.), which run as `ubuntu` on the box. All
+three read `AWS_PROFILE` / `AWS_REGION` / `INSTANCE_ID` from `scripts/.env`
+(gitignored), so you can run them bare.
 
 ## Runbook
 
@@ -97,14 +100,16 @@ you're there. Then:
 
 ```sh
 aws configure sso          # SSO start URL + region from A.1; pick account +
-                           # SSMConnect; CLI region af-south-1; profile name e.g. pbx
+                           # AdministratorAccess; CLI region af-south-1; profile name e.g. pbx
 aws sso login --profile pbx
 aws sts get-caller-identity --profile pbx   # confirm; prints Account id
 ```
 
 ### C. Provision + connect (workstation)
 
-Prefix script runs with `AWS_PROFILE=pbx` so they use the SSO profile.
+Prefix runs with `AWS_PROFILE=pbx` so they use the SSO profile — or put
+`AWS_PROFILE` / `AWS_REGION` / `INSTANCE_ID` in `scripts/.env` (auto-sourced) and
+drop the inline prefixes entirely.
 
 ```sh
 # 1. find the instance (note the i-... id)
@@ -122,16 +127,29 @@ AWS_PROFILE=pbx INSTANCE_ID=i-xxxx bash scripts/aws-ssm-connect-setup.sh --write
 AWS_PROFILE=pbx aws ssm start-session --target i-xxxx --region af-south-1  # shell as ssm-user
 ssh pbx                                                                    # shell as ubuntu (over SSM)
 
-# 5. lock down (recommended): in Identity Center create an "SSMConnect" permission
-#    set from aws/ssm-connect-policy.json (placeholders filled), assign it to your
-#    user, and `aws configure sso` a second profile that uses it for day-to-day
-#    connect (smaller blast radius than Administrator). Then delete the inbound
-#    port-22 rule from the instance's security group.
+# 5. lock down -- close inbound SSH now that SSM works (PBX ports are left alone):
+bash scripts/aws-ssm-lockdown.sh
+# (optional) drop off Administrator for day-to-day: create an "SSMConnect" set from
+# aws/ssm-connect-policy.json (placeholders filled), assign it to your user, and
+# `aws configure sso` a second profile that uses it (smaller blast radius).
 ```
 
 Day to day: `aws sso login --profile pbx` once when the token expires, then
 `ssh pbx` / `scp pbx:` freely. Use the Administrator profile only when you need
 to re-run setup/admin.
+
+## Troubleshooting (both hit during first setup)
+
+- **Agent never reaches `Online`** after `aws-ssm-setup.sh` attaches the role —
+  it started before the role existed and cached "no credentials." Reboot so it
+  re-reads instance metadata: `aws ec2 reboot-instances --instance-ids i-...`,
+  wait ~2 min, re-run the setup script.
+- **`ssh pbx` → `Permission denied (publickey)` but `start-session` works** —
+  your key isn't in the box's `/home/ubuntu/.ssh/authorized_keys` (EC2 Instance
+  Connect's `AuthorizedKeysCommand` only serves *ephemeral* keys, so it fails for
+  a static keypair). `start-session` needs no key, so get on that way, then add
+  your pubkey: locally `ssh-keygen -y -f ~/.ssh/your-key.pem`, then on the box
+  `echo '<that line>' | sudo tee -a /home/ubuntu/.ssh/authorized_keys`.
 
 ## Break-glass / recovery
 
