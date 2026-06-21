@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     sip_pass_01: str = ""
     sip_pass_02: str = ""
+    sip_pass_03: str = ""
 
     domain: str = ""
     email: str = ""

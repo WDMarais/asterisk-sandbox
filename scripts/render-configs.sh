@@ -40,7 +40,7 @@ generate '${AMI_SECRET}' \
     "$REPO_ROOT/asterisk/manager.conf.template" \
     /etc/asterisk/manager.conf
 
-generate '${SIP_PASS_01},${SIP_PASS_02},${DOMAIN}' \
+generate '${SIP_PASS_01},${SIP_PASS_02},${SIP_PASS_03},${DOMAIN}' \
     "$REPO_ROOT/asterisk/pjsip.conf.template" \
     /etc/asterisk/pjsip.conf
 
