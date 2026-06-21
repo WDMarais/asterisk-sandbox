@@ -75,7 +75,9 @@ async def originate(req: OriginateRequest):
         exten=req.destination,
         context=settings.originate_context,
         channel_id=channel_id,
-        caller_id=req.destination,
+        # name = who we're calling (shown on the agent's phone); number = the
+        # agent, so call tracking identifies the originating leg correctly.
+        caller_id=f'"{req.destination}" <{req.agent}>',
     )
     return _json({"channel_id": channel_id, "status": "originating"})
 
