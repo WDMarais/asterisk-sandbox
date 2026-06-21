@@ -63,10 +63,13 @@ def _transports(domain: str) -> list[str]:
     udp += ["local_net=172.31.0.0/16"]
     ws = [
         "; WebSocket transport for browser softphones (TLS terminated by nginx,",
-        "; which proxies wss://.../ws -> ws://127.0.0.1:8088/ws).",
+        "; which proxies wss://.../ws -> ws://127.0.0.1:8088/ws). The bind is",
+        "; required for the config to load; the actual WS socket is the http.conf",
+        "; server on 8088 -- pjsip rides it rather than opening its own.",
         "[transport-ws]",
         "type=transport",
         "protocol=ws",
+        "bind=0.0.0.0:8088",
     ]
     return udp + [""] + ws
 

@@ -26,6 +26,8 @@ class TestRender:
         assert "[transport-udp]" in out
         assert "[transport-ws]" in out
         assert "protocol=ws" in out
+        # ws transport must declare a bind or res_pjsip_transport_websocket declines
+        assert "bind=0.0.0.0:8088" in out
 
     def test_external_address_from_domain(self):
         assert "external_media_address=pbx.example.com" in render()
