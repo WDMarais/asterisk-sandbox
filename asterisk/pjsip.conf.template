@@ -6,6 +6,13 @@ external_media_address=${DOMAIN}
 external_signaling_address=${DOMAIN}
 local_net=172.31.0.0/16
 
+; WebSocket transport for browser softphones. TLS is terminated by nginx, which
+; proxies wss://${DOMAIN}/ws -> ws://127.0.0.1:8088/ws (see http.conf + nginx),
+; so PJSIP sees plain ws here.
+[transport-ws]
+type=transport
+protocol=ws
+
 ; Extension 6001
 [6001]
 type=endpoint
@@ -58,18 +65,17 @@ max_contacts=2
 remove_existing=yes
 qualify_frequency=30
 
-; Extension 6003
+; Extension 6003 -- browser softphone (WebRTC over WebSocket)
 [6003]
 type=endpoint
 context=internal
 disallow=all
+allow=opus
 allow=ulaw
-allow=alaw
 auth=auth6003
 aors=6003
-direct_media=no
-rtp_symmetric=yes
-force_rport=yes
+webrtc=yes
+dtls_auto_generate_cert=yes
 rewrite_contact=yes
 
 [auth6003]
