@@ -12,4 +12,26 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.0",
+    "ruff>=0.15.18",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test assertions are frequently long; wrapping them hurts readability more
+# than the line-length cap helps.
+"tests/**" = ["E501"]

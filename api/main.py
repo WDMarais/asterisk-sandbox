@@ -27,6 +27,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="asterisk-sandbox", lifespan=lifespan)
 
 
+def _json(data) -> Response:
+    return Response(
+        content=json.dumps(jsonable_encoder(data)) + "\n",
+        media_type="application/json",
+    )
+
+
 @app.get("/health")
 def health():
     return Response(content='{"status": "ok"}\n', media_type="application/json")
@@ -34,12 +41,11 @@ def health():
 
 @app.get("/calls")
 def list_calls():
-    data = {
+    return _json({
         "agent_states": ami.agent_states,
         "device_states": ami.device_states,
         "calls": [call.snapshot() for call in ami.tracker.calls.values()],
-    }
-    return Response(content=json.dumps(jsonable_encoder(data)) + "\n", media_type="application/json")
+    })
 
 
 @app.get("/events")
@@ -57,7 +63,7 @@ async def event_stream():
                 try:
                     chunk = await asyncio.wait_for(q.get(), timeout=30)
                     yield chunk
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keepalive\n\n"
         finally:
             ami.unsubscribe(q)

@@ -21,7 +21,6 @@ from api.parsing import (
     transition_agent_state,
 )
 
-
 # --- parse_channel ---
 
 class TestParseChannel:

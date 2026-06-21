@@ -38,10 +38,8 @@ class AmiClient:
         return q
 
     def unsubscribe(self, q: asyncio.Queue[str]) -> None:
-        try:
+        with contextlib.suppress(ValueError):
             self._subscribers.remove(q)
-        except ValueError:
-            pass
 
     def _publish(self, event_type: str, payload: dict) -> None:
         chunk = f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"

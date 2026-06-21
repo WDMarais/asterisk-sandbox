@@ -15,7 +15,7 @@ enough for a live-calls view and matches the spec's per-Uniqueid note.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from api.parsing import CallOrigin, classify_call_origin
 
@@ -47,7 +47,7 @@ CALL_ENDED = "call_ended"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass

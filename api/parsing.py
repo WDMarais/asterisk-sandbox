@@ -1,5 +1,5 @@
 import logging
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 
-class ChannelTechnology(str, Enum):
+class ChannelTechnology(StrEnum):
     PJSIP = "PJSIP"
     SIP = "SIP"
     LOCAL = "LOCAL"
@@ -15,7 +15,7 @@ class ChannelTechnology(str, Enum):
     INSCRUTABLE = "INSCRUTABLE"
 
 
-class DeviceState(str, Enum):
+class DeviceState(StrEnum):
     NOT_INUSE = "NOT_INUSE"
     INUSE = "INUSE"
     RINGING = "RINGING"
@@ -27,7 +27,7 @@ class DeviceState(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
-class RegistrationState(str, Enum):
+class RegistrationState(StrEnum):
     REGISTERED = "REGISTERED"
     UNREGISTERED = "UNREGISTERED"
 
@@ -63,7 +63,9 @@ class InscrutableChannel(BaseModel):
     raw: str
 
 
-ChannelResult = ParsedChannel | LocalChannel | MalformedChannel | UnknownTechChannel | InscrutableChannel
+ChannelResult = (
+    ParsedChannel | LocalChannel | MalformedChannel | UnknownTechChannel | InscrutableChannel
+)
 
 
 # --- Device state parsing results ---
@@ -139,7 +141,7 @@ def parse_device_state(raw: str | None) -> DeviceStateResult:
 
 # --- Agent combined state FSM ---
 
-class AgentState(str, Enum):
+class AgentState(StrEnum):
     AVAILABLE    = "AVAILABLE"
     RINGING_IN   = "RINGING_IN"
     RINGING_OUT  = "RINGING_OUT"
@@ -196,7 +198,7 @@ def is_blocked_intentional_transition(current: AgentState, proposed: AgentState)
 
 # --- Call origin classification ---
 
-class CallOrigin(str, Enum):
+class CallOrigin(StrEnum):
     OUTBOUND = "OUTBOUND"
     QUEUE    = "QUEUE"
     INTERNAL = "INTERNAL"
