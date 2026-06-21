@@ -1,6 +1,9 @@
 [asterisk-pjsip]
 enabled  = true
 filter   = asterisk-pjsip
+# Ubuntu defaults to backend=systemd (journald); Asterisk logs to a file, so
+# force a file backend or this jail reads nothing ("Journal matches:" + 0 hits).
+backend  = polling
 logpath  = /var/log/asterisk/messages.log
 maxretry = 5
 findtime = 600
