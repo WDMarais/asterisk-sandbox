@@ -24,12 +24,21 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Optional local config (gitignored): AWS_PROFILE, AWS_REGION, INSTANCE_ID, etc.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
 AWS_REGION="${AWS_REGION:-af-south-1}"
 ROLE_NAME="${ROLE_NAME:-ssm-ec2-role}"
 PROFILE_NAME="${PROFILE_NAME:-ssm-ec2-profile}"
 MANAGED_POLICY="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TRUST_DOC="$REPO_ROOT/aws/ec2-ssm-trust-policy.json"
 
 command -v aws >/dev/null || { echo "error: aws CLI not found -- install and 'aws configure' first" >&2; exit 1; }

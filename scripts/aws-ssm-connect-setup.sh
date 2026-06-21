@@ -17,6 +17,15 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Optional local config (gitignored): AWS_PROFILE, AWS_REGION, INSTANCE_ID, etc.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
 AWS_REGION="${AWS_REGION:-af-south-1}"
 SSH_HOST_ALIAS="${SSH_HOST_ALIAS:-pbx}"
 SSH_USER="${SSH_USER:-ubuntu}"
