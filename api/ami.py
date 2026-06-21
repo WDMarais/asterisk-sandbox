@@ -93,6 +93,45 @@ class AmiClient:
         self._writer.write(b"Action: DeviceStateList\r\n\r\n")
         await self._writer.drain()
 
+    async def _send_action(self, fields: dict[str, str]) -> None:
+        if self._writer is None:
+            raise RuntimeError("AMI not connected")
+        block = "".join(f"{k}: {v}\r\n" for k, v in fields.items()) + "\r\n"
+        self._writer.write(block.encode())
+        await self._writer.drain()
+
+    async def originate(
+        self,
+        *,
+        channel: str,
+        exten: str,
+        context: str,
+        channel_id: str,
+        priority: int = 1,
+        caller_id: str | None = None,
+        timeout_ms: int = 30000,
+    ) -> None:
+        """Fire an async AMI Originate: ring `channel`, then route the answered
+        call to `exten` in `context`. `channel_id` is assigned as the new
+        channel's Uniqueid and tagged server-originated, so the call classifies
+        OUTBOUND once its OriginateResponse arrives. The response and channel
+        events flow back through the normal event loop.
+        """
+        self.tracker.server_originated.add(channel_id)
+        fields = {
+            "Action": "Originate",
+            "Channel": channel,
+            "Exten": exten,
+            "Context": context,
+            "Priority": str(priority),
+            "ChannelId": channel_id,
+            "Timeout": str(timeout_ms),
+            "Async": "true",
+        }
+        if caller_id:
+            fields["CallerID"] = caller_id
+        await self._send_action(fields)
+
     async def _event_loop(self) -> None:
         backoff = _RECONNECT_BACKOFF_INITIAL
         while True:
@@ -116,7 +155,7 @@ class AmiClient:
         if block.get("Event") == "DeviceStateChange":
             self._handle_device_state_change(block)
         # Feed every event to the call tracker; it self-filters on its allowlist.
-        self.tracker.known_endpoints = self._endpoint_numbers()
+        self.tracker.known_endpoints = self.endpoint_numbers()
         for event_type, payload in self.tracker.ingest(block):
             self._publish(event_type, payload)
 
@@ -138,7 +177,7 @@ class AmiClient:
                     "previous": current,
                 })
 
-    def _endpoint_numbers(self) -> frozenset[str]:
+    def endpoint_numbers(self) -> frozenset[str]:
         """Bare extension numbers, derived from the devices Asterisk reports."""
         return frozenset(
             device.split("/", 1)[1]

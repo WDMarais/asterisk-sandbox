@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     ami_user: str = "asterisk-sandbox"
     ami_secret: str
 
+    # Dialplan context used for click-to-dial: the agent's channel is originated,
+    # then routed to the destination exten in this context (see extensions.conf).
+    originate_context: str = "internal"
+
     sip_pass_01: str = ""
     sip_pass_02: str = ""
 

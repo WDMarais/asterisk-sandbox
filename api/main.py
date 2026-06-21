@@ -2,11 +2,13 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from api.ami import AmiClient
 from api.settings import Settings
@@ -56,6 +58,26 @@ def list_calls():
         "device_states": ami.device_states,
         "calls": [call.snapshot() for call in ami.tracker.calls.values()],
     })
+
+
+class OriginateRequest(BaseModel):
+    agent: str        # endpoint to ring, e.g. "6001"
+    destination: str  # exten dialed once the agent answers, e.g. "6002"
+
+
+@app.post("/originate")
+async def originate(req: OriginateRequest):
+    if req.agent not in ami.endpoint_numbers():
+        raise HTTPException(status_code=404, detail=f"unknown endpoint: {req.agent}")
+    channel_id = uuid4().hex
+    await ami.originate(
+        channel=f"PJSIP/{req.agent}",
+        exten=req.destination,
+        context=settings.originate_context,
+        channel_id=channel_id,
+        caller_id=req.destination,
+    )
+    return _json({"channel_id": channel_id, "status": "originating"})
 
 
 @app.get("/events")
