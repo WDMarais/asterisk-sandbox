@@ -11,6 +11,7 @@
 # Config (env vars; defaults shown):
 #   INSTANCE_ID=i-...   (required)
 #   AWS_REGION=af-south-1   SSH_HOST_ALIAS=pbx   SSH_USER=ubuntu
+#   AWS_PROFILE=<name>  (SSO profile; baked into the ProxyCommand if set)
 # Flags:
 #   --write   append the Host block to ~/.ssh/config (default: just print it)
 
@@ -21,6 +22,12 @@ SSH_HOST_ALIAS="${SSH_HOST_ALIAS:-pbx}"
 SSH_USER="${SSH_USER:-ubuntu}"
 WRITE=0
 [[ "${1:-}" == "--write" ]] && WRITE=1
+
+# With IAM Identity Center (SSO) you connect via a named profile; bake it into
+# the ProxyCommand so `ssh $SSH_HOST_ALIAS` works in any shell. Harmless if unset
+# (default credential resolution applies).
+profile_arg=""
+[[ -n "${AWS_PROFILE:-}" ]] && profile_arg=" --profile $AWS_PROFILE"
 
 : "${INSTANCE_ID:?set INSTANCE_ID=i-... (the instance from aws-ssm-setup.sh)}"
 command -v aws >/dev/null || { echo "error: aws CLI not found -- install and 'aws configure' first" >&2; exit 1; }
@@ -46,7 +53,7 @@ block="$(cat <<EOF
 Host $SSH_HOST_ALIAS
     HostName $INSTANCE_ID
     User $SSH_USER
-    ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p' --region $AWS_REGION"
+    ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p' --region $AWS_REGION$profile_arg"
 # <<< $marker <<<
 EOF
 )"

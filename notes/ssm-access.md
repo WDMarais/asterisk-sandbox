@@ -38,18 +38,26 @@ Deliberately separated so day-to-day access is least-privilege:
 |---|---|---|---|
 | **Bootstrap** | your admin-ish identity, one-time | create the IAM role + instance profile, attach to the instance | listed in `scripts/aws-ssm-setup.sh` header |
 | **Instance role** | the EC2 box, ongoing | let the agent talk to SSM | AWS-managed `AmazonSSMManagedInstanceCore` (trust: `aws/ec2-ssm-trust-policy.json`) |
-| **Connect** | your day-to-day identity, ongoing | start/stop a session on *this one instance* only | `aws/ssm-connect-policy.json` |
+| **Connect** | your SSO session (Identity Center permission set), ongoing | start/stop a session on *this one instance* only | `aws/ssm-connect-policy.json` |
 
 `aws/ssm-connect-policy.json` is the minimal grant for normal use: describe (to
 discover the instance), `StartSession` scoped to this instance's ARN + the two
-session documents, and terminate/resume scoped to your own sessions. Fill the
-placeholders before attaching it:
+session documents, and terminate/resume scoped to session resources.
+
+We use **IAM Identity Center (SSO)**, so this JSON is attached as the inline
+policy of a *permission set* (which becomes a short-lived role in the account) —
+not to an IAM user. SSO means no long-lived access key on disk; you re-auth with
+`aws sso login` when the session token expires. Fill the placeholders before
+attaching it:
 
 - `REGION` → `af-south-1`
 - `ACCOUNT_ID` → your 12-digit account id (`aws sts get-caller-identity --query Account --output text`)
 - `INSTANCE_ID` → the `i-...` from setup
-- `${aws:username}` works for IAM users; for SSO/role sessions the session ARN
-  uses the role-session name instead — broaden that statement if terminate is denied.
+
+(The session-management statement is scoped to `session/*` rather than
+`${aws:username}-*`: that variable is empty for SSO role sessions, and those
+actions only apply to session resources anyway. The real least-priv control is
+`StartSession`, which stays locked to the single instance.)
 
 ## Repo artifacts
 
@@ -65,35 +73,56 @@ lifecycle scripts (`provision.sh` etc.), which run as `ubuntu` on the box.
 
 ## Runbook
 
-Prerequisite (can't be scripted — it's the credential bootstrap):
+### A. Identity bootstrap — IAM Identity Center (console, one-time)
+
+Never use the root user. Set up an SSO identity instead (short-lived creds, no
+key on disk):
+
+1. Console → **IAM Identity Center** → Enable (auto-creates an AWS Organization
+   over this single account if none exists). Note the **AWS access portal URL**
+   (Settings → e.g. `https://d-xxxx.awsapps.com/start`) and the Identity Center
+   region.
+2. **Permission sets** → Create → Custom → attach the contents of
+   `aws/ssm-connect-policy.json` (placeholders filled) as an inline policy. Name
+   it e.g. `SSMConnect`; session duration ~4h.
+3. **Users** → Add user (your email) → set password + register MFA from the
+   emailed invite.
+4. **AWS accounts** → select this account → Assign → your user → `SSMConnect`.
+
+### B. Configure the CLI (workstation)
 
 ```sh
-aws configure          # access key + secret, region af-south-1
-# or: aws configure sso
-aws sts get-caller-identity   # confirm you're authenticated
+aws configure sso          # SSO start URL + region from A.1; pick account +
+                           # SSMConnect; CLI region af-south-1; profile name e.g. pbx
+aws sso login --profile pbx
+aws sts get-caller-identity --profile pbx   # confirm; prints Account id
 ```
 
-Then:
+### C. Provision + connect (workstation)
+
+Prefix script runs with `AWS_PROFILE=pbx` so they use the SSO profile.
 
 ```sh
 # 1. find the instance (note the i-... id)
-aws ec2 describe-instances --region af-south-1 --output table \
+AWS_PROFILE=pbx aws ec2 describe-instances --region af-south-1 --output table \
   --query 'Reservations[].Instances[].[InstanceId,PublicIpAddress,State.Name]'
 
 # 2. create role + profile, attach to instance, wait for Online
-INSTANCE_ID=i-xxxx bash scripts/aws-ssm-setup.sh
-#    (or, to look up by Name tag: INSTANCE_NAME=pbx bash scripts/aws-ssm-setup.sh)
+AWS_PROFILE=pbx INSTANCE_ID=i-xxxx bash scripts/aws-ssm-setup.sh
+#    (or look up by Name tag: AWS_PROFILE=pbx INSTANCE_NAME=pbx bash scripts/aws-ssm-setup.sh)
 
-# 3. local plugin + ssh config
-INSTANCE_ID=i-xxxx bash scripts/aws-ssm-connect-setup.sh --write
+# 3. local plugin + ssh config (AWS_PROFILE is baked into the ProxyCommand)
+AWS_PROFILE=pbx INSTANCE_ID=i-xxxx bash scripts/aws-ssm-connect-setup.sh --write
 
 # 4. smoke test
-aws ssm start-session --target i-xxxx --region af-south-1   # shell as ssm-user
-ssh pbx                                                     # shell as ubuntu (over SSM)
+AWS_PROFILE=pbx aws ssm start-session --target i-xxxx --region af-south-1  # shell as ssm-user
+ssh pbx                                                                    # shell as ubuntu (over SSM)
 
-# 5. lock down: attach aws/ssm-connect-policy.json to your day-to-day identity,
-#    then delete the inbound port-22 rule from the instance's security group.
+# 5. lock down: delete the inbound port-22 rule from the instance's security group.
 ```
+
+Day to day: `aws sso login --profile pbx` once when the token expires, then
+`ssh pbx` / `scp pbx:` freely.
 
 ## Break-glass / recovery
 

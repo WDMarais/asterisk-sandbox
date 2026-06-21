@@ -29,7 +29,7 @@
         "ssm:TerminateSession",
         "ssm:ResumeSession"
       ],
-      "Resource": "arn:aws:ssm:*:*:session/${aws:username}-*"
+      "Resource": "arn:aws:ssm:*:*:session/*"
     }
   ]
 }
