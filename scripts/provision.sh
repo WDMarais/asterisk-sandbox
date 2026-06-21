@@ -19,7 +19,7 @@ REPO_DIR="$HOME/asterisk-sandbox"
 echo "==> system packages"
 sudo apt-get update -q
 sudo apt-get upgrade -y -q
-sudo apt-get install -y -q asterisk nginx certbot python3-certbot-nginx git curl gettext-base
+sudo apt-get install -y -q asterisk nginx certbot python3-certbot-nginx git curl gettext-base fail2ban
 
 echo "==> uv"
 if ! command -v uv &>/dev/null; then

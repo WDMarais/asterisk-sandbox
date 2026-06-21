@@ -37,6 +37,15 @@ sudo cp asterisk/logrotate.conf /etc/logrotate.d/asterisk
 echo '0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/asterisk' \
     | sudo tee /etc/cron.d/asterisk-logrotate-hourly > /dev/null
 
+echo "==> fail2ban (SIP scanner bans)"
+if command -v fail2ban-client > /dev/null; then
+    sudo cp fail2ban/filter.d/asterisk-pjsip.conf /etc/fail2ban/filter.d/asterisk-pjsip.conf
+    sudo cp fail2ban/jail.d/asterisk-pjsip.local /etc/fail2ban/jail.d/asterisk-pjsip.local
+    sudo systemctl restart fail2ban
+else
+    echo "fail2ban not installed -- skipping (sudo apt-get install -y fail2ban, then re-run)"
+fi
+
 echo "==> fastapi service"
 sudo cp scripts/fastapi.service /etc/systemd/system/asterisk-fastapi.service
 sudo systemctl daemon-reload

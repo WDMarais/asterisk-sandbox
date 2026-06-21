@@ -1,0 +1,9 @@
+[asterisk-pjsip]
+enabled  = true
+filter   = asterisk-pjsip
+logpath  = /var/log/asterisk/messages.log
+maxretry = 5
+findtime = 600
+bantime  = 3600
+# Scanners aren't legitimate on any port, so ban the source IP wholesale.
+action   = iptables-allports[name=asterisk-pjsip]
