@@ -7,6 +7,8 @@ backend  = polling
 logpath  = /var/log/asterisk/messages.log
 maxretry = 5
 findtime = 600
-bantime  = 3600
+# These are persistent cloud-hosted scanners (OVH ranges, same IPs hour after
+# hour), never legitimate users -- ban for a week so they don't cycle back in.
+bantime  = 604800
 # Scanners aren't legitimate on any port, so ban the source IP wholesale.
 action   = iptables-allports[name=asterisk-pjsip]
