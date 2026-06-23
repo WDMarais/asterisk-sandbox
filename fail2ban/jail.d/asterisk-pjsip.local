@@ -11,4 +11,8 @@ findtime = 600
 # hour), never legitimate users -- ban for a week so they don't cycle back in.
 bantime  = 604800
 # Scanners aren't legitimate on any port, so ban the source IP wholesale.
-action   = iptables-allports[name=asterisk-pjsip]
+# protocol=all is REQUIRED: iptables-allports defaults to protocol=tcp, but SIP
+# scanners flood UDP 5060 -- without this the ban chain only diverts TCP, so
+# banned IPs keep hammering over UDP (fail2ban reports them banned while packets
+# still arrive). Covers UDP+TCP.
+action   = iptables-allports[name=asterisk-pjsip, protocol=all]
