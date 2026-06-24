@@ -25,3 +25,9 @@ asterisk/pjsip.conf
 
 # OS
 .DS_Store
+
+# Runtime / generated data
+backups/
+cache/
+projects/
+history.jsonl
