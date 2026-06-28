@@ -1,0 +1,18 @@
+#!/bin/bash
+# Pre-commit hook: lint staged Python files with ruff before allowing a commit.
+# Install with: scripts/hooks/install.sh
+#
+# Only staged .py files are checked, so unrelated lint debt elsewhere never
+# blocks an otherwise-clean commit. Exits non-zero (aborting the commit) if
+# ruff finds anything; run `uv run ruff check --fix` to clear most of it.
+
+set -euo pipefail
+
+# Staged files that still exist (Added/Copied/Modified/Renamed), Python only.
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACMR -- '*.py')
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+uv run ruff check "${files[@]}"
