@@ -32,6 +32,22 @@ echo "==> asterisk + nginx config"
 sudo bash scripts/link-configs.sh
 bash scripts/render-configs.sh
 
+echo "==> asterisk modules (PJSIP-only: drop deprecated chan_sip)"
+# Every endpoint here is PJSIP. Under the apt-default `autoload=yes`, chan_sip
+# also loads and steals the "sip" WebSocket subprotocol from
+# res_pjsip_transport_websocket -- breaking browser (wss) registration with a
+# misleading chan_sip "Wrong password". Drop it.
+if ! grep -q "noload => chan_sip.so" /etc/asterisk/modules.conf; then
+    sudo sed -i "/^\[modules\]/a noload => chan_sip.so" /etc/asterisk/modules.conf
+    echo "added 'noload => chan_sip.so' to /etc/asterisk/modules.conf"
+fi
+# Unloading chan_sip needs a full restart (core reload won't drop it, and the ws
+# subprotocol is claimed at module load). Only restart when it's still loaded.
+if sudo asterisk -rx "module show like chan_sip" 2>/dev/null | grep -qi "chan_sip.so"; then
+    echo "chan_sip still loaded -- restarting asterisk to apply"
+    sudo systemctl restart asterisk
+fi
+
 echo "==> log rotation"
 sudo cp asterisk/logrotate.conf /etc/logrotate.d/asterisk
 echo '0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/asterisk' \

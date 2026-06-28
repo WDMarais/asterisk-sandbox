@@ -48,7 +48,11 @@ substitutes values via `envsubst`, and writes directly to `/etc/asterisk/`.
 
 ### Config files
 Selective symlinks — only files managed in this repo are linked. The rest of
-`/etc/asterisk` (modules.conf, logger.conf, etc.) is left as installed by apt.
+`/etc/asterisk` (logger.conf, etc.) is left as installed by apt. Exception:
+`apply-repo.sh` edits `modules.conf` in place to add `noload => chan_sip.so`
+(idempotent) — this is a PJSIP-only PBX, and leaving the deprecated chan_sip
+stack autoloaded lets it steal the "sip" WebSocket subprotocol from PJSIP,
+breaking browser (wss) registration with a misleading "Wrong password".
 
 ```bash
 sudo bash scripts/link-configs.sh
