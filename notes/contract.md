@@ -187,3 +187,13 @@ toward that model for the AMI/SIP surface.
 4. An end-to-end harness that asserts the contract
 5. A list of questions for any PBX operator: "our integration relies on X, Y, Z
    from the standard — do you diverge from any of these?"
+
+---
+
+## Related decisions (ADRs)
+
+- [ADR 0001](adr-0001-softphone-api-auth-and-cors.md) — how the browser softphone
+  authenticates to the broker API (`/originate`, `/events`, `/calls`) and the CORS
+  trust model. Separates the three gates (CORS / authN / authZ), proposes
+  short-lived extension-scoped bearer tokens, and shows how single-tenant grows into
+  a multi-tenant origin registry.
