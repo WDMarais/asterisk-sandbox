@@ -197,3 +197,8 @@ toward that model for the AMI/SIP surface.
   trust model. Separates the three gates (CORS / authN / authZ), proposes
   short-lived extension-scoped bearer tokens, and shows how single-tenant grows into
   a multi-tenant origin registry.
+- [ADR 0002](adr-0002-sip-credential-convergence.md) — converging the SIP
+  registration credential and the API token onto one operator login, so a single
+  identity backs both the media and control planes. Makes `/auth/login` the issuer of
+  all per-session secrets and phases the SIP credential from JIT-delivered-static
+  (now) to ephemeral-via-realtime (before any PSTN trunk).
